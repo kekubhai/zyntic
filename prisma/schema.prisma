@@ -1,0 +1,251 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  FREELANCER
+  CLIENT
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+  INCOMPLETE
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELED
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  ARCHIVED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  imageUrl  String?
+  role      UserRole @default(FREELANCER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Freelancer/Agency specific
+  businessName String?
+  website      String?
+  phone        String?
+  address      String?
+  city         String?
+  state        String?
+  country      String   @default("India")
+  pincode      String?
+  gstin        String?
+
+  // Relationships
+  subscription Subscription?
+  workspaces   Workspace[]
+  projects     Project[]
+  clients      Client[]
+  invoices     Invoice[]
+  notifications Notification[]
+  
+  @@map("users")
+}
+
+model Subscription {
+  id                String             @id @default(cuid())
+  userId            String             @unique
+  razorpayCustomerId String?           @unique
+  razorpaySubscriptionId String?       @unique
+  status            SubscriptionStatus @default(TRIALING)
+  planId            String
+  planName          String
+  amount            Float
+  currency          String             @default("INR")
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  email     String
+  phone     String?
+  company   String?
+  address   String?
+  city      String?
+  state     String?
+  country   String   @default("India")
+  pincode   String?
+  gstin     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects   Project[]
+  workspaces Workspace[]
+  invoices   Invoice[]
+
+  @@map("clients")
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  userId      String
+  clientId    String
+  title       String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  startDate   DateTime?
+  endDate     DateTime?
+  budget      Float?
+  currency    String        @default("INR")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client    Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  workspace Workspace?
+  invoices  Invoice[]
+  updates   Update[]
+
+  @@map("projects")
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  userId    String
+  clientId  String
+  projectId String   @unique
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  files   File[]
+  updates Update[]
+
+  @@map("workspaces")
+}
+
+model File {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  url         String
+  key         String
+  size        Int
+  type        String
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("files")
+}
+
+model Update {
+  id          String   @id @default(cuid())
+  workspaceId String
+  projectId   String
+  title       String
+  content     String
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("updates")
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  userId      String
+  clientId    String
+  projectId   String?
+  invoiceNumber String      @unique
+  title       String
+  description String?
+  amount      Float
+  currency    String        @default("INR")
+  taxAmount   Float         @default(0)
+  totalAmount Float
+  status      InvoiceStatus @default(DRAFT)
+  issueDate   DateTime      @default(now())
+  dueDate     DateTime
+  paidAt      DateTime?
+  razorpayOrderId String?
+  razorpayPaymentId String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  items   InvoiceItem[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Float  @default(1)
+  rate        Float
+  amount      Float
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_items")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
