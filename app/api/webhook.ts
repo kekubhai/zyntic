@@ -12,9 +12,15 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
   const wh = new Webhook(process.env.CLERK_SECRET_KEY || '');
 
-  let evt;
+  const headersObject = {
+    'webhook-id': Array.isArray(headers['webhook-id']) ? headers['webhook-id'].join(',') : headers['webhook-id'] || '',
+    'webhook-timestamp': Array.isArray(headers['webhook-timestamp']) ? headers['webhook-timestamp'].join(',') : headers['webhook-timestamp'] || '',
+    'webhook-signature': Array.isArray(headers['webhook-signature']) ? headers['webhook-signature'].join(',') : headers['webhook-signature'] || '',
+  };
+
+  let evt: { type: string; data: any };
   try {
-    evt = wh.verify(payload, headers);
+    evt = wh.verify(payload, headersObject) as { type: string; data: any };
   } catch (err) {
     return res.status(400).json({ message: 'Invalid webhook signature' });
   }
