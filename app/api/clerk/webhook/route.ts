@@ -8,9 +8,11 @@ export async function POST(req: NextRequest) {
 
   const wh = new Webhook(process.env.CLERK_SECRET_KEY || '');
 
-  let evt;
+  const headersObject = Object.fromEntries(headers.entries());
+
+  let evt: { type: string; data: any };
   try {
-    evt = wh.verify(payload, headers);
+    evt = wh.verify(payload, headersObject) as { type: string; data: any };
   } catch (err) {
     return NextResponse.json({ message: 'Invalid webhook signature' }, { status: 400 });
   }

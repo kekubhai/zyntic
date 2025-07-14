@@ -4,6 +4,22 @@ import { razorpay, RAZORPAY_PLANS } from '@/lib/razorpay'
 import { prisma } from '@/lib/prisma'
 import { sendEmail, EMAIL_TEMPLATES } from '@/lib/resend'
 
+// Define a custom type for RazorpaySubscription
+interface RazorpaySubscription {
+  id: string;
+  status: string;
+  // Add other relevant fields as needed
+}
+
+// Define a custom type for Razorpay subscription creation
+interface RazorpaySubscriptionCreateRequestBodyCustom {
+  plan_id: string;
+  customer_id: string;
+  quantity: number;
+  total_count: number;
+  notes?: Record<string, string>;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { userId } = auth()
@@ -48,16 +64,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Create subscription
-    const subscription = await razorpay.subscriptions.create({
+    const subscription = (await razorpay.subscriptions.create({
       plan_id: planId,
       customer_id: customerId,
       quantity: 1,
       total_count: 12, // 12 months
       notes: {
         userId: user.id,
-        planName: plan.name
-      }
-    })
+        planName: plan.name,
+      },
+    } as RazorpaySubscriptionCreateRequestBodyCustom)) as RazorpaySubscription; // Use custom type
 
     // Update database
     await prisma.subscription.upsert({
@@ -87,7 +103,7 @@ export async function POST(request: NextRequest) {
     await sendEmail({
       to: user.email,
       subject: `Welcome to ${plan.name} plan!`,
-      template: EMAIL_TEMPLATES.SUBSCRIPTION_CREATED,
+      template: EMAIL_TEMPLATES.SUBSCRIPTION_CREATED as keyof typeof EMAIL_TEMPLATES, // Type assertion
       data: {
         firstName: user.firstName,
         planName: plan.name,
@@ -99,8 +115,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       subscription: {
-        id: subscription.id,
-        status: subscription.status,
+        id: subscription.id, // Access resolved properties
+        status: subscription.status, // Access resolved properties
         planName: plan.name
       }
     })

@@ -1,4 +1,4 @@
-import { User, Client, Project, Invoice, Workspace, File, Update, Subscription } from '@prisma/client'
+import { User, Client, Project, Invoice, Workspace, File, Update, Subscription, InvoiceItem } from '@prisma/client'
 
 export type UserWithRelations = User & {
   clients: Client[]

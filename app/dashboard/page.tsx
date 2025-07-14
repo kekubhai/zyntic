@@ -112,7 +112,7 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentActivity userId={user.id} />
+          
           </CardContent>
         </Card>
 
